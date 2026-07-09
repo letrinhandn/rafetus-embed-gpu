@@ -82,7 +82,7 @@ for e in json.load(sys.stdin):
 
 # Max-out: keep 1–2 warm workers, scale aggressively on request count.
 WORKERS_MIN="${RUNPOD_WORKERS_MIN:-1}"
-WORKERS_MAX="${RUNPOD_WORKERS_MAX:-12}"
+WORKERS_MAX="${RUNPOD_WORKERS_MAX:-8}"
 IDLE_TIMEOUT="${RUNPOD_IDLE_TIMEOUT:-120}"
 ENDPOINT_BODY="$(python3 -c "
 import json

@@ -1,6 +1,6 @@
 # Rafetus RunPod Serverless — BGE-M3 GPU embed
 
-Stateless GPU worker for ingest embedding. `ar-worker-embed` (CPU) polls SQS and calls this endpoint per batch.
+Stateless GPU worker for ingest embedding. `ar-worker-embed` (CPU) polls SQS and fans out parallel `/run` shards to this endpoint.
 
 ## Quick deploy
 
@@ -32,7 +32,16 @@ bash runpod/deploy.sh   # build + push ghcr.io/<user>/rafetus-embed-gpu
 INGEST_EMBED_BACKEND=runpod
 RUNPOD_API_KEY=rpa_...
 RUNPOD_EMBED_ENDPOINT_ID=<from deploy output>
-INGEST_EMBED_PARTIAL_BATCH=128
+INGEST_EMBED_PARTIAL_BATCH=256
+RUNPOD_EMBED_SHARD_SIZE=256
+RUNPOD_EMBED_MAX_PARALLEL=8
+```
+
+Max-out live endpoint (active workers + REQUEST_COUNT scaler):
+
+```bash
+# Needs RUNPOD_MANAGEMENT_API_KEY (full REST access) in .env
+bash runpod/patch-endpoint-maxout.sh
 ```
 
 Restart embed worker after deploy:

@@ -22,7 +22,8 @@ fi
 API="https://rest.runpod.io/v1"
 AUTH="Authorization: Bearer ${API_KEY}"
 WORKERS_MIN="${RUNPOD_WORKERS_MIN:-1}"
-WORKERS_MAX="${RUNPOD_WORKERS_MAX:-12}"
+# Account worker quota is often 10 — default 8 leaves headroom.
+WORKERS_MAX="${RUNPOD_WORKERS_MAX:-8}"
 IDLE_TIMEOUT="${RUNPOD_IDLE_TIMEOUT:-120}"
 
 BODY="$(python3 -c "
@@ -47,23 +48,26 @@ print(json.dumps(body))
 ")"
 
 echo "==> PATCH endpoint ${ENDPOINT_ID}"
-RESP="$(curl -s -w "\nHTTP:%{http_code}" -X PATCH "${API}/endpoints/${ENDPOINT_ID}" \
+HTTP_CODE="$(curl -s -o /tmp/runpod-patch.json -w "%{http_code}" -X PATCH "${API}/endpoints/${ENDPOINT_ID}" \
   -H "${AUTH}" -H "Content-Type: application/json" \
   -d "${BODY}")"
-HTTP="$(echo "${RESP}" | sed -n 's/^HTTP://p')"
-BODY_OUT="$(echo "${RESP}" | sed '/^HTTP:/d')"
-echo "${BODY_OUT}" | python3 -c "
-import json,sys
-raw=sys.stdin.read()
-try:
-  d=json.loads(raw)
-except Exception:
-  print(raw[:800]); raise SystemExit(1)
+if ! python3 -c "
+import json, sys
+from pathlib import Path
+raw = Path('/tmp/runpod-patch.json').read_text()
+d = json.loads(raw)
+if d.get('error') or d.get('status') == 400:
+    print(raw[:800])
+    sys.exit(1)
 print('workersMin=', d.get('workersMin'), 'workersMax=', d.get('workersMax'))
 print('scalerType=', d.get('scalerType'), 'scalerValue=', d.get('scalerValue'))
 print('idleTimeout=', d.get('idleTimeout'), 'flashboot=', d.get('flashboot'))
 print('gpuTypeIds=', d.get('gpuTypeIds'))
-" || { echo "PATCH failed HTTP=${HTTP}"; echo "${BODY_OUT}" | head -c 500; exit 1; }
+"; then
+  echo "PATCH failed HTTP=${HTTP_CODE}"
+  head -c 500 /tmp/runpod-patch.json
+  exit 1
+fi
 
 if [[ -n "${TEMPLATE_ID}" ]]; then
   echo "==> PATCH template ${TEMPLATE_ID} EMBED_BATCH_SIZE=256"
