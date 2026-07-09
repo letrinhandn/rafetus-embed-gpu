@@ -1,8 +1,9 @@
-"""RunPod Serverless worker — BGE-M3 via fastembed ONNX (matches Rust ingest path)."""
+"""RunPod Serverless worker — BGE-M3 via FlagEmbedding on GPU."""
 
 from __future__ import annotations
 
 import logging
+import math
 import os
 
 import runpod
@@ -17,16 +18,20 @@ def _load_model():
     global _model
     if _model is not None:
         return _model
-    from fastembed import TextEmbedding
+    import torch
+    from FlagEmbedding import BGEM3FlagModel
 
+    device = "cuda" if torch.cuda.is_available() else "cpu"
     model_name = os.environ.get("EMBED_MODEL", "BAAI/bge-m3")
-    logger.info("Loading fastembed %s (CUDA) ...", model_name)
-    _model = TextEmbedding(
-        model_name=model_name,
-        providers=["CUDAExecutionProvider", "CPUExecutionProvider"],
-    )
-    logger.info("fastembed model ready")
+    logger.info("Loading FlagEmbedding %s on %s ...", model_name, device)
+    _model = BGEM3FlagModel(model_name, use_fp16=(device == "cuda"), device=device)
+    logger.info("FlagEmbedding model ready")
     return _model
+
+
+def _normalize(vec: list[float]) -> list[float]:
+    norm = math.sqrt(sum(x * x for x in vec)) or 1.0
+    return [x / norm for x in vec]
 
 
 def handler(job: dict) -> dict:
@@ -37,17 +42,18 @@ def handler(job: dict) -> dict:
         return {"vectors": [], "dim": 1024, "count": 0}
 
     model = _load_model()
+    encoded = model.encode(
+        texts,
+        batch_size=min(_batch_size, len(texts)),
+        max_length=1024,
+    )
+    dense = encoded.get("dense_vecs") if isinstance(encoded, dict) else encoded
     vectors = []
-    for start in range(0, len(texts), _batch_size):
-        batch = texts[start : start + _batch_size]
-        for emb in model.embed(batch):
-            vec = emb.tolist() if hasattr(emb, "tolist") else list(emb)
-            if normalize:
-                import math
-
-                norm = math.sqrt(sum(x * x for x in vec)) or 1.0
-                vec = [x / norm for x in vec]
-            vectors.append(vec)
+    for row in dense:
+        vec = row.tolist() if hasattr(row, "tolist") else list(row)
+        if normalize:
+            vec = _normalize(vec)
+        vectors.append(vec)
 
     dim = len(vectors[0]) if vectors else 1024
     return {"vectors": vectors, "dim": dim, "count": len(texts)}
