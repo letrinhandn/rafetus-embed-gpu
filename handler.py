@@ -10,7 +10,7 @@ import runpod
 logger = logging.getLogger("rafetus.embed")
 
 _model = None
-_batch_size = int(os.environ.get("EMBED_BATCH_SIZE", "128"))
+_batch_size = int(os.environ.get("EMBED_BATCH_SIZE", "256"))
 
 
 def _load_model():
