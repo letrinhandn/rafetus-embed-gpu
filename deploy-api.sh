@@ -27,7 +27,7 @@ IMAGE="${RUNPOD_BASE_IMAGE:-runpod/pytorch:2.4.0-py3.11-cuda12.4.1-devel-ubuntu2
 API="https://rest.runpod.io/v1"
 AUTH="Authorization: Bearer ${RUNPOD_API_KEY}"
 
-START_CMD="pip install --no-cache-dir runpod~=1.7.6 'sentence-transformers>=3.0.0,<4.0.0' && curl -fsSL '${HANDLER_URL}' -o /handler.py && python -u /handler.py"
+START_CMD="pip install --no-cache-dir runpod~=1.7.6 'sentence-transformers>=3.0.0,<4.0.0' safetensors && curl -fsSL '${HANDLER_URL}' -o /handler.py && python -u /handler.py"
 
 echo "==> Create or reuse serverless template (${IMAGE})"
 EXISTING_TEMPLATE_ID="$(curl -sf "${API}/templates" -H "${AUTH}" | python3 -c "
@@ -140,11 +140,13 @@ TEST_RESP="$(curl -sf -X POST "https://api.runpod.ai/v2/${ENDPOINT_ID}/runsync" 
 echo "${TEST_RESP}" | python3 -c "
 import json, sys
 data = json.load(sys.stdin)
-out = data.get('output') or data
 if data.get('status') == 'FAILED':
-    raise SystemExit(data.get('error') or out)
+    raise SystemExit(data.get('error') or 'RunPod job failed')
+out = data.get('output') or data
 vecs = out.get('vectors') or []
-print(f'OK: {out.get(\"count\", len(vecs))} vectors, dim={out.get(\"dim\", len(vecs[0]) if vecs else 0)}')
+if not vecs:
+    raise SystemExit(f'No vectors in response: {json.dumps(data)[:500]}')
+print(f'OK: {out.get(\"count\", len(vecs))} vectors, dim={out.get(\"dim\", len(vecs[0]))}')
 "
 
 python3 - <<PY

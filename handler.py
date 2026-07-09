@@ -23,7 +23,12 @@ def _load_model():
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     logger.info("Loading %s on %s ...", _model_name, device)
-    _model = SentenceTransformer(_model_name, device=device)
+    _model = SentenceTransformer(
+        _model_name,
+        device=device,
+        model_kwargs={"use_safetensors": True},
+        tokenizer_kwargs={"use_safetensors": True},
+    )
     logger.info("Model ready on %s", device)
     return _model
 
