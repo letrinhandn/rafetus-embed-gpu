@@ -2,8 +2,13 @@ FROM pytorch/pytorch:2.4.0-cuda12.4-cudnn9-runtime
 
 WORKDIR /
 
-COPY requirements.txt /requirements.txt
-RUN pip install --no-cache-dir -r /requirements.txt
+# Pin versions compatible with base torch 2.4 — do NOT force-reinstall torch/torchvision.
+RUN pip install --no-cache-dir \
+    runpod==1.7.6 \
+    transformers==4.44.2 \
+    sentence-transformers==3.0.1 \
+    huggingface-hub==0.24.7 \
+    tokenizers==0.19.1
 
 COPY handler.py /handler.py
 
