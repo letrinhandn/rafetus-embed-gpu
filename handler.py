@@ -20,8 +20,11 @@ def _load_model():
     from fastembed import TextEmbedding
 
     model_name = os.environ.get("EMBED_MODEL", "BAAI/bge-m3")
-    logger.info("Loading fastembed %s ...", model_name)
-    _model = TextEmbedding(model_name=model_name)
+    logger.info("Loading fastembed %s (CUDA) ...", model_name)
+    _model = TextEmbedding(
+        model_name=model_name,
+        providers=["CUDAExecutionProvider", "CPUExecutionProvider"],
+    )
     logger.info("fastembed model ready")
     return _model
 
