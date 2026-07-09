@@ -1,56 +1,47 @@
-# Rafetus RunPod Serverless — BGE-M3 GPU embed (cost-efficient)
+# Rafetus RunPod Serverless — BGE-M3 (cost-efficient)
 
-Stateless GPU worker for ingest embedding. Design goal: **cực rẻ + đủ nhanh**, không giữ GPU 24/7.
+**Mục tiêu:** cực rẻ + đủ nhanh. Không giữ GPU 24/7, không bung nhiều worker.
 
-## Chốt cấu hình Rafetus
+## Cấu hình chốt
 
 ```
 RunPod:
-  workersMin: 0          # scale-to-zero — $0 khi không ingest
-  workersMax: 1          # đúng 1 GPU đầy tải
+  workersMin: 0
+  workersMax: 1
   scalerType: QUEUE_DELAY
-  scalerValue: 8         # giây
-  idleTimeout: 45        # tắt sau khi hết việc
-  GPU: RTX 4090 (+ A5000/A40 fallback)
+  scalerValue: 8
+  idleTimeout: 45
+  GPU: RTX 4090 (+ A5000 / A40 fallback)
 
 App:
-  INGEST_WORKER_CONCURRENCY: 2
-  RUNPOD_EMBED_SHARD_SIZE: 256   # thử 384/512 sau benchmark
-  RUNPOD_EMBED_MAX_PARALLEL: 1   # tối đa 2 — không fan-out 8 GPU
-  feeder per-user cap: 2
+  INGEST_WORKER_CONCURRENCY: 1   # embed + extract + index
+  RUNPOD_EMBED_SHARD_SIZE: 256   # thử 384/512 sau khi bake image
+  RUNPOD_EMBED_MAX_PARALLEL: 1
+  feeder per-user cap: 1
+  sweeper republish: false
 ```
 
-## Patch endpoint đang chạy
+Patch endpoint:
 
 ```bash
-# Needs RUNPOD_MANAGEMENT_API_KEY (full REST) in rafetus-index/.env
 bash runpod/patch-endpoint-cost.sh
 ```
 
-## Deploy
-
-**Bootstrap (không cần registry)** — `deploy-api.sh` vẫn `pip install` lúc boot → cold start chậm hơn. Chỉ dùng khi chưa push được image bake.
-
-**Bake (khuyến nghị)** — Dockerfile cài deps + tải BGE-M3 sẵn:
+## Bake image (khuyến nghị — bỏ pip/model download lúc boot)
 
 ```bash
-bash runpod/deploy.sh   # build + push + update endpoint
+bash runpod/deploy.sh
 ```
+
+Dockerfile bake deps + BGE-M3. Bootstrap `deploy-api.sh` vẫn pip-on-boot → chỉ dùng tạm.
 
 ## Worker env
 
 ```bash
 INGEST_EMBED_BACKEND=runpod
-RUNPOD_API_KEY=rpa_...                 # inference
-RUNPOD_MANAGEMENT_API_KEY=rpa_...      # rest.runpod.io patch/deploy
+RUNPOD_API_KEY=rpa_...              # inference
+RUNPOD_MANAGEMENT_API_KEY=rpa_...   # REST patch
 RUNPOD_EMBED_ENDPOINT_ID=<id>
-INGEST_EMBED_PARTIAL_BATCH=256
 RUNPOD_EMBED_SHARD_SIZE=256
 RUNPOD_EMBED_MAX_PARALLEL=1
 ```
-
-```bash
-cd rafetus-web-app && docker compose up -d ar-worker-embed data-api
-```
-
-Handler: https://github.com/letrinhandn/rafetus-embed-gpu
