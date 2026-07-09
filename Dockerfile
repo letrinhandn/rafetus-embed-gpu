@@ -1,4 +1,4 @@
-FROM pytorch/pytorch:2.6.0-cuda12.4-cudnn9-runtime
+FROM pytorch/pytorch:2.4.0-cuda12.4-cudnn9-runtime
 
 WORKDIR /
 
@@ -11,6 +11,5 @@ ENV EMBED_MODEL=BAAI/bge-m3
 ENV EMBED_BATCH_SIZE=128
 ENV HF_HOME=/runpod-volume
 ENV TRANSFORMERS_CACHE=/runpod-volume
-ENV SENTENCE_TRANSFORMERS_HOME=/runpod-volume
 
 CMD ["python", "-u", "/handler.py"]
