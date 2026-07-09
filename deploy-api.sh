@@ -27,7 +27,7 @@ IMAGE="${RUNPOD_BASE_IMAGE:-runpod/pytorch:2.4.0-py3.11-cuda12.4.1-devel-ubuntu2
 API="https://rest.runpod.io/v1"
 AUTH="Authorization: Bearer ${RUNPOD_API_KEY}"
 
-START_CMD="pip install --no-cache-dir --force-reinstall 'transformers==4.44.2' 'sentence-transformers==3.0.1' 'runpod==1.7.6' && curl -fsSL '${HANDLER_URL}' -o /handler.py && python -u /handler.py"
+START_CMD="pip install --no-cache-dir runpod==1.7.6 transformers==4.44.2 sentence-transformers==3.0.1 huggingface-hub==0.24.7 tokenizers==0.19.1 && curl -fsSL '${HANDLER_URL}' -o /handler.py && python -u /handler.py"
 
 echo "==> Create or reuse serverless template (${IMAGE})"
 EXISTING_TEMPLATE_ID="$(curl -sf "${API}/templates" -H "${AUTH}" | python3 -c "
@@ -49,7 +49,7 @@ print(json.dumps({
   'dockerStartCmd': ['bash', '-c', '''${START_CMD}'''],
   'env': {
     'EMBED_MODEL': 'BAAI/bge-m3',
-    'EMBED_BATCH_SIZE': '128',
+    'EMBED_BATCH_SIZE': '256',
     'HF_HOME': '/runpod-volume',
     'TRANSFORMERS_CACHE': '/runpod-volume',
   },
@@ -80,19 +80,27 @@ for e in json.load(sys.stdin):
         break
 " "${ENDPOINT_NAME}" 2>/dev/null || true)"
 
+# Max-out: keep 1–2 warm workers, scale aggressively on request count.
+WORKERS_MIN="${RUNPOD_WORKERS_MIN:-1}"
+WORKERS_MAX="${RUNPOD_WORKERS_MAX:-12}"
+IDLE_TIMEOUT="${RUNPOD_IDLE_TIMEOUT:-120}"
 ENDPOINT_BODY="$(python3 -c "
 import json
 print(json.dumps({
   'name': '${ENDPOINT_NAME}',
   'templateId': '${TEMPLATE_ID}',
-  'gpuTypeIds': ['NVIDIA GeForce RTX 4090'],
-  'workersMin': 0,
-  'workersMax': 3,
-  'idleTimeout': 10,
-  'executionTimeoutMs': 300000,
+  'gpuTypeIds': [
+    'NVIDIA GeForce RTX 4090',
+    'NVIDIA GeForce RTX 5090',
+    'NVIDIA A40',
+  ],
+  'workersMin': int('${WORKERS_MIN}'),
+  'workersMax': int('${WORKERS_MAX}'),
+  'idleTimeout': int('${IDLE_TIMEOUT}'),
+  'executionTimeoutMs': 600000,
   'flashboot': True,
-  'scalerType': 'QUEUE_DELAY',
-  'scalerValue': 4,
+  'scalerType': 'REQUEST_COUNT',
+  'scalerValue': 1,
 }))
 ")"
 

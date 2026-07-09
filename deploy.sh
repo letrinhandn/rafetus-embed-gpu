@@ -108,19 +108,26 @@ for e in json.load(sys.stdin):
         break
 " "${ENDPOINT_NAME}" 2>/dev/null || true)"
 
+WORKERS_MIN="${RUNPOD_WORKERS_MIN:-1}"
+WORKERS_MAX="${RUNPOD_WORKERS_MAX:-12}"
+IDLE_TIMEOUT="${RUNPOD_IDLE_TIMEOUT:-120}"
 ENDPOINT_BODY="$(python3 -c "
 import json
 print(json.dumps({
   'name': '${ENDPOINT_NAME}',
   'templateId': '${TEMPLATE_ID}',
-  'gpuTypeIds': ['NVIDIA GeForce RTX 4090'],
-  'workersMin': 0,
-  'workersMax': 3,
-  'idleTimeout': 10,
-  'executionTimeoutMs': 300000,
+  'gpuTypeIds': [
+    'NVIDIA GeForce RTX 4090',
+    'NVIDIA GeForce RTX 5090',
+    'NVIDIA A40',
+  ],
+  'workersMin': int('${WORKERS_MIN}'),
+  'workersMax': int('${WORKERS_MAX}'),
+  'idleTimeout': int('${IDLE_TIMEOUT}'),
+  'executionTimeoutMs': 600000,
   'flashboot': True,
-  'scalerType': 'QUEUE_DELAY',
-  'scalerValue': 4,
+  'scalerType': 'REQUEST_COUNT',
+  'scalerValue': 1,
 }))
 ")"
 
