@@ -27,7 +27,7 @@ IMAGE="${RUNPOD_BASE_IMAGE:-runpod/pytorch:2.4.0-py3.11-cuda12.4.1-devel-ubuntu2
 API="https://rest.runpod.io/v1"
 AUTH="Authorization: Bearer ${RUNPOD_API_KEY}"
 
-START_CMD="pip install --no-cache-dir --upgrade 'torch>=2.6.0' --index-url https://download.pytorch.org/whl/cu124 && pip install --no-cache-dir runpod~=1.7.6 'sentence-transformers>=3.0.0,<4.0.0' && curl -fsSL '${HANDLER_URL}' -o /handler.py && python -u /handler.py"
+START_CMD="pip install --no-cache-dir --upgrade 'torch>=2.6.0' --index-url https://download.pytorch.org/whl/cu124 && pip install --no-cache-dir --force-reinstall 'transformers==4.48.3' 'sentence-transformers==3.4.1' 'runpod==1.7.6' && curl -fsSL '${HANDLER_URL}' -o /handler.py && python -u /handler.py"
 
 echo "==> Create or reuse serverless template (${IMAGE})"
 EXISTING_TEMPLATE_ID="$(curl -sf "${API}/templates" -H "${AUTH}" | python3 -c "
